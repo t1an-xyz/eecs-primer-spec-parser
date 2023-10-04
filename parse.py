@@ -2,8 +2,16 @@ import requests
 import os
 from bs4 import BeautifulSoup
 import urllib
+import sys
 
-URL = "https://eecs280staff.github.io/tutorials/setup_vscode_macos.html"
+n = len(sys.argv)
+if n != 2:
+    print("Usage: python parse.py <URL>")
+    exit()
+URL = sys.argv[1]
+if URL.endswith("/"):
+    URL = URL[:-1]
+
 o = urllib.parse.urlparse(URL)
 base_url = o.scheme + "://" + o.netloc + "/" + "".join(o.path.split("/")[:-1]) + "/"
 page = requests.get(URL)
@@ -43,13 +51,17 @@ def recursiveSearch(element):
         return "[" + element.get_text() + "](" + element["href"] + ")"
     elif element.name == "img":
         start_path = os.path.join(os.getcwd(), "docs")
-        final_path = os.path.join(start_path, element["src"])
+        sanitized_src = element["src"]
+        if element["src"].startswith("/"):
+            sanitized_src = element["src"][1:]
+        final_path = os.path.join(start_path, sanitized_src)
         if not os.path.exists(os.path.dirname(final_path)):
             os.makedirs(os.path.dirname(final_path))
-        r = requests.get(base_url + element["src"], allow_redirects=True)
+        # print(base_url + sanitized_src)
+        r = requests.get(base_url + sanitized_src, allow_redirects=True)
         open(final_path, "wb").write(r.content)
         if "alt" in element.attrs:
-            return "![" + element["alt"] + "](" + element["src"] + ")"
+            return "![" + element["alt"] + "](" + sanitized_src + ")"
         return "![](" + element["src"] + ")"
     elif element.name == "code":
         return "`" + element.get_text() + "`"
@@ -94,7 +106,7 @@ def recursiveSearch(element):
 if not os.path.exists(os.path.join(os.getcwd(), "docs")):
     os.makedirs(os.path.join(os.getcwd(), "docs"))
 
-with open("docs/README.md", "w") as f:
+with open("docs/README.md", "x") as f:
     f.write(recursiveSearch(soup.body))
 
 # with open("docs/output.html", "w") as f:
